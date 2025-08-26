@@ -184,6 +184,7 @@ export default function App() {
 
   // helper: find layer
   const findLayer = (id) => layers.find(l => l.id === id)
+  const [isDrawing, setIsDrawing] = useState(false)
 
   useEffect(() => {
     pushHistory()
@@ -241,14 +242,19 @@ export default function App() {
   // Drawing events for brush/eraser
   function handleMouseDown(e) {
     if (tool !== 'brush' && tool !== 'eraser') return
+    setIsDrawing(true)  // start drawing
+
     const stage = e.target.getStage()
     const pos = stage.getPointerPosition()
     const lid = activeLayerId
     const stroke = { id: uuidv4(), points: [pos.x, pos.y], color: brushColor, size: brushSize, opacity: brushOpacity, mode: tool }
     setLines(prev => ({ ...prev, [lid]: [...(prev[lid] || []), stroke] }))
   }
+
   function handleMouseMove(e) {
+    if (!isDrawing) return  // only draw if mouse is pressed
     if (tool !== 'brush' && tool !== 'eraser') return
+
     const stage = e.target.getStage()
     const pos = stage.getPointerPosition()
     const lid = activeLayerId
@@ -260,9 +266,15 @@ export default function App() {
       return { ...prev, [lid]: [...list.slice(0, list.length - 1), last] }
     })
   }
+
   function handleMouseUp(e) {
     if (tool !== 'brush' && tool !== 'eraser') return
+    setIsDrawing(false)  // stop drawing
     pushHistory()
+  }
+
+  function handleMouseLeave(e) {
+    setIsDrawing(false) // stop drawing if mouse leaves canvas
   }
 
   // upload image as new layer
@@ -366,6 +378,7 @@ export default function App() {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave} // stop drawing if cursor leaves stage
             ref={stageRef}
             style={{ background: '#fff' }}
           >
