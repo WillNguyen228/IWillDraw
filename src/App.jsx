@@ -190,18 +190,68 @@ export default function App() {
   const findLayer = (id) => layers.find(l => l.id === id)
   const [isDrawing, setIsDrawing] = useState(false)
 
+  const [isMiddleDown, setIsMiddleDown] = useState(false) //This might not be necessary
+  const [isPanning, setIsPanning] = useState(false)
+  const [lastPos, setLastPos] = useState(null)
+
+  const [isRotating, setIsRotating] = useState(false)
+  const [lastY, setLastY] = useState(0)
+
+  // Compute the center of your canvas:
+  const centerX = canvasWidth / 2
+  const centerY = canvasHeight / 2
+
   useEffect(() => { pushHistory() }, [])
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); // prevent browser undo
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+      }
+      if (e.key.toLowerCase() === 'r') {
+        setTool('rotate')
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.key.toLowerCase() === 'r') {
+        setTool('brush') // or previous tool
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [historyIndex, history]);
+
   function pushHistory() {
-    const snapshot = JSON.stringify({ layers })
-    const next = history.slice(0, historyIndex + 1)
-    next.push(snapshot)
-    setHistory(next)
-    setHistoryIndex(next.length - 1)
+    const snapshot = JSON.stringify({ layers, lines }); // include lines
+    const next = history.slice(0, historyIndex + 1);
+    next.push(snapshot);
+    setHistory(next);
+    setHistoryIndex(next.length - 1);
   }
 
-  function undo() { if (historyIndex <= 0) return; const prev = JSON.parse(history[historyIndex - 1]); setLayers(prev.layers); setHistoryIndex(historyIndex - 1) }
-  function redo() { if (historyIndex >= history.length - 1) return; const next = JSON.parse(history[historyIndex + 1]); setLayers(next.layers); setHistoryIndex(historyIndex + 1) }
+  function undo() {
+    if (historyIndex <= 0) return;
+    const prev = JSON.parse(history[historyIndex - 1]);
+    setLayers(prev.layers);
+    setLines(prev.lines); // full snapshot
+    setHistoryIndex(historyIndex - 1);
+  }
+
+  function redo() {
+    if (historyIndex >= history.length - 1) return;
+    const next = JSON.parse(history[historyIndex + 1]);
+    setLayers(next.layers);
+    setLines(next.lines);
+    setHistoryIndex(historyIndex + 1);
+  }
 
   function addLayer(name = 'Layer') {
     const newLayer = { id: uuidv4(), name, type: 'raster', visible: true, opacity: 1, blend: 'normal', content: [] }
@@ -230,38 +280,53 @@ export default function App() {
     pushHistory()
   }
 
+  function isInsideCanvas(localPos) {
+    return (
+      localPos.x >= 0 &&
+      localPos.y >= 0 &&
+      localPos.x <= canvasWidth &&
+      localPos.y <= canvasHeight
+    )
+  }
+
   // Drawing events
   function handleMouseDown(e) {
+    if (e.evt.button !== 0) return; // only left button starts drawing
     if (tool !== 'brush' && tool !== 'eraser') return
+
+    const pos = canvasGroupRef.current.getRelativePointerPosition()
+    if (!isInsideCanvas(pos)) return; // don't start stroke outside
+
     setIsDrawing(true)
-    const stage = e.target.getStage()
-    const pos = stage.getPointerPosition()
-    const localPos = {
-      x: (pos.x - canvasPos.x) / canvasScale,
-      y: (pos.y - canvasPos.y) / canvasScale
-    }
     const lid = activeLayerId
-    const stroke = { id: uuidv4(), points: [localPos.x, localPos.y], color: brushColor, size: brushSize, opacity: brushOpacity, mode: tool }
-    setLines(prev => ({ ...prev, [lid]: [...(prev[lid] || []), stroke] }))
+    const stroke = {
+      id: uuidv4(),
+      points: [pos.x, pos.y, pos.x + 0.1, pos.y + 0.1], // tiny line so it shows on click
+      color: brushColor,
+      size: brushSize,
+      opacity: brushOpacity,
+      mode: tool // 'brush' or 'eraser'
+    };
+
+    setLines(prev => ({ ...prev, [lid]: [...(prev[lid] || []), stroke] }));
   }
 
   function handleMouseMove(e) {
     if (!isDrawing) return
+    if (e.evt.buttons !== 1) return; // only continue if left button held
     if (tool !== 'brush' && tool !== 'eraser') return
-    const stage = e.target.getStage()
-    const pos = stage.getPointerPosition()
-    const localPos = {
-      x: (pos.x - canvasPos.x) / canvasScale,
-      y: (pos.y - canvasPos.y) / canvasScale
-    }
+    
+    const pos = canvasGroupRef.current.getRelativePointerPosition()
+    if (!isInsideCanvas(pos)) return
+
     const lid = activeLayerId
     setLines(prev => {
-      const list = prev[lid]
-      if (!list || list.length === 0) return prev
-      const last = list[list.length - 1]
-      last.points = last.points.concat([localPos.x, localPos.y])
-      return { ...prev, [lid]: [...list.slice(0, list.length - 1), last] }
-    })
+      const list = prev[lid];
+      if (!list || list.length === 0) return prev;
+      const last = list[list.length - 1];
+      last.points = last.points.concat([pos.x, pos.y]);
+      return { ...prev, [lid]: [...list.slice(0, -1), last] };
+    });
   }
 
   function handleMouseUp() { if (tool === 'brush' || tool === 'eraser') { setIsDrawing(false); pushHistory() } }
@@ -339,13 +404,45 @@ export default function App() {
       {/* Canvas */}
       <div className="flex-1 flex justify-center items-center">
         <Stage
-          width={window.innerWidth - 16 - 320} // adjust for sidebars
+          width={window.innerWidth}
           height={window.innerHeight}
           ref={stageRef}
           onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+          onMouseDown={(e) => {
+            if (tool === 'rotate' && e.evt.button === 0) { // left button + rotate mode
+              setIsRotating(true)
+              setLastY(e.evt.clientY)
+            } else if (e.evt.button === 1) { //Middle mouse
+              setIsMiddleDown(true)
+              setIsPanning(true)
+              setLastPos({ x: e.evt.clientX, y: e.evt.clientY })
+            } else {
+              handleMouseDown(e) // only brush/eraser with left click
+            }
+          }}
+          onMouseMove={(e) => {
+            if (isRotating) {
+              const dy = e.evt.clientY - lastY
+              setCanvasRotation(prev => prev + dy * 0.5) // adjust sensitivity
+              setLastY(e.evt.clientY)
+            } else if (isPanning) {
+              const dx = e.evt.clientX - lastPos.x
+              const dy = e.evt.clientY - lastPos.y
+              setCanvasPos((prev) => ({ x: prev.x + dx, y: prev.y + dy }))
+              setLastPos({ x: e.evt.clientX, y: e.evt.clientY })
+            } else {
+              handleMouseMove(e)
+            }
+          }}
+          onMouseUp={(e) => {
+            if (isRotating) setIsRotating(false)
+            if (e.evt.button === 1) {
+              setIsMiddleDown(false)
+              setIsPanning(false)
+            } else {
+              handleMouseUp(e)
+            }
+          }}
           onMouseLeave={handleMouseLeave}
         >
           {/* Background grid */}
@@ -359,20 +456,38 @@ export default function App() {
             ))}
           </Layer>
 
-          {/* Canvas group */}
+          {/* White canvas — separate Layer */}
+          <Layer>
+            <Rect
+              x={canvasPos.x + centerX}
+              y={canvasPos.y + centerY}
+              width={canvasWidth}
+              height={canvasHeight}
+              fill="white"
+              shadowBlur={5}
+              listening={false} // ignore pointer events
+              scaleX={canvasScale}   // <- apply scaling
+              scaleY={canvasScale}   // <- apply scaling
+              rotation={canvasRotation} // sync rotation!
+              offsetX={centerX}
+              offsetY={centerY}
+            />
+          </Layer>
+
+          {/* Strokes & images — draggable Group */}
           <Layer>
             <Group
-              x={canvasPos.x}
-              y={canvasPos.y}
+              x={canvasPos.x + centerX} // move pivot to center
+              y={canvasPos.y + centerY} // move pivot to center
               scaleX={canvasScale}
               scaleY={canvasScale}
               rotation={canvasRotation}
+              offsetX={centerX} // set pivot to center
+              offsetY={centerY} // set pivot to center
               ref={canvasGroupRef}
-              draggable
+              draggable={isMiddleDown} // only draggable while middle mouse is down
               onDragEnd={(e) => setCanvasPos({ x: e.target.x(), y: e.target.y() })}
             >
-              <Rect width={canvasWidth} height={canvasHeight} fill="white" shadowBlur={5} />
-              
               {layers.map((layer) => (
                 <Group key={layer.id} visible={layer.visible} opacity={layer.opacity}>
                   {(lines[layer.id] || []).map((stroke) => (
@@ -381,11 +496,12 @@ export default function App() {
                       points={stroke.points}
                       stroke={stroke.mode === 'eraser' ? '#000' : stroke.color}
                       strokeWidth={stroke.size}
-                      tension={0.5}
+                      tension={stroke.mode === 'eraser' ? 0 : 0.5}
                       lineCap="round"
                       lineJoin="round"
                       opacity={stroke.opacity}
                       globalCompositeOperation={stroke.mode === 'eraser' ? 'destination-out' : 'source-over'}
+                      listening={stroke.mode === 'eraser' ? true : true} // eraser still reacts
                     />
                   ))}
 
