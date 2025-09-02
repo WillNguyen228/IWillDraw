@@ -39,6 +39,7 @@ import React, { useRef, useState, useEffect } from 'react'
 import { Stage, Layer, Line, Rect, Ellipse, Image as KImage, Group, Transformer } from 'react-konva'
 import useImage from 'use-image'
 import { v4 as uuidv4 } from 'uuid'
+import LayersPanel from "./LayersPanel";
 
 // small helper component to show konva images from HTML Image
 const KonvaImage = ({ layer, isSelected, onSelect, onChange }) => {
@@ -201,6 +202,8 @@ export default function App() {
   const centerX = canvasWidth / 2
   const centerY = canvasHeight / 2
 
+  const [showLayers, setShowLayers] = useState(false)
+
   useEffect(() => { pushHistory() }, [])
 
   useEffect(() => {
@@ -359,6 +362,52 @@ export default function App() {
     link.remove()
   }
 
+  function mergeUp(id) {
+    const idx = layers.findIndex(l => l.id === id);
+    if (idx <= 0) return; // cannot merge topmost layer up
+
+    const upperLayer = layers[idx - 1];
+    const currentLayer = layers[idx];
+
+    // Merge lines (strokes)
+    const mergedLines = {
+      ...lines,
+      [upperLayer.id]: [
+        ...(lines[upperLayer.id] || []),
+        ...(lines[currentLayer.id] || [])
+      ]
+    };
+
+    // Merge images/shapes: for simplicity, copy the current layer's shapes into upper layer
+    const mergedLayers = layers.filter(l => l.id !== id);
+    setLines(mergedLines);
+    setLayers(mergedLayers);
+    setActiveLayerId(upperLayer.id);
+    pushHistory();
+  }
+
+  function mergeDown(id) {
+    const idx = layers.findIndex(l => l.id === id);
+    if (idx === layers.length - 1) return; // cannot merge bottommost layer down
+
+    const lowerLayer = layers[idx + 1];
+    const currentLayer = layers[idx];
+
+    const mergedLines = {
+      ...lines,
+      [lowerLayer.id]: [
+        ...(lines[lowerLayer.id] || []),
+        ...(lines[currentLayer.id] || [])
+      ]
+    };
+
+    const mergedLayers = layers.filter(l => l.id !== id);
+    setLines(mergedLines);
+    setLayers(mergedLayers);
+    setActiveLayerId(lowerLayer.id);
+    pushHistory();
+  }
+
   function blendToComposite(blend) {
     switch (blend) {
       case 'multiply': return 'multiply'
@@ -395,14 +444,20 @@ export default function App() {
       <div className="w-16 bg-white border-r p-2 flex flex-col gap-2">
         <button onClick={() => setTool('brush')} className={`p-2 rounded ${tool === 'brush' ? 'bg-gray-200' : ''}`}>✏️</button>
         <button onClick={() => setTool('eraser')} className={`p-2 rounded ${tool === 'eraser' ? 'bg-gray-200' : ''}`}>🧽</button>
-        <button onClick={() => setTool('rect')} className={`p-2 rounded ${tool === 'rect' ? 'bg-gray-200' : ''}`}>▭</button>
-        <button onClick={() => setTool('ellipse')} className={`p-2 rounded ${tool === 'ellipse' ? 'bg-gray-200' : ''}`}>◯</button>
-        <button onClick={() => setTool('line')} className={`p-2 rounded ${tool === 'line' ? 'bg-gray-200' : ''}`}>\/</button>
+
+        {/* Layers button */}
+        <button
+          onClick={() => setShowLayers(!showLayers)}
+          className="p-2 rounded hover:bg-gray-200"
+        >
+          🗂
+        </button>
+
         <input type="file" accept="image/*" onChange={handleUpload} />
       </div>
 
       {/* Canvas */}
-      <div className="flex-1 flex justify-center items-center">
+      <div className="flex-1 flex justify-center items-center relative">
         <Stage
           width={window.innerWidth}
           height={window.innerHeight}
@@ -489,7 +544,12 @@ export default function App() {
               onDragEnd={(e) => setCanvasPos({ x: e.target.x(), y: e.target.y() })}
             >
               {layers.map((layer) => (
-                <Group key={layer.id} visible={layer.visible} opacity={layer.opacity}>
+                <Group
+                  key={layer.id}
+                  visible={layer.visible}
+                  opacity={layer.opacity}
+                  globalCompositeOperation={blendToComposite(layer.blend)}
+                >
                   {(lines[layer.id] || []).map((stroke) => (
                     <Line
                       key={stroke.id}
@@ -508,8 +568,8 @@ export default function App() {
                   {layer.type === 'image' || layer.isShape ? (
                     <KonvaImage
                       layer={layer}
-                      isSelected={selectedId === layer.id}
-                      onSelect={() => setSelectedId(layer.id)}
+                      isSelected={activeLayerId === layer.id}
+                      onSelect={() => setActiveLayerId(layer.id)}
                       onChange={(updated) => setLayers(prev => prev.map(p => p.id === layer.id ? updated : p))}
                     />
                   ) : null}
@@ -520,10 +580,21 @@ export default function App() {
         </Stage>
       </div>
 
-      {/* Right panel */}
-      <div className="w-80 bg-white border-l p-4 flex flex-col gap-4">
-        {/* ...layers & controls same as before... */}
-      </div>
+      {/* Floating Layers Panel (React DOM, not inside Stage) */}
+      {showLayers && (
+        <div className="fixed top-4 right-4 w-72 bg-white shadow-xl rounded-lg p-3 z-50">
+          <LayersPanel
+            layers={layers}
+            setLayers={setLayers}
+            activeLayerId={activeLayerId}
+            setActiveLayerId={setActiveLayerId}
+            addLayer={addLayer}
+            deleteLayer={deleteLayer}
+            reorderLayer={reorderLayer}
+          />
+        </div>
+      )}
+
     </div>
   )
 }
