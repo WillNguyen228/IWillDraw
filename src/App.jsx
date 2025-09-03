@@ -445,6 +445,39 @@ export default function App() {
         <button onClick={() => setTool('brush')} className={`p-2 rounded ${tool === 'brush' ? 'bg-gray-200' : ''}`}>✏️</button>
         <button onClick={() => setTool('eraser')} className={`p-2 rounded ${tool === 'eraser' ? 'bg-gray-200' : ''}`}>🧽</button>
 
+        {/* Brush size slider */}
+        <label className="text-xs text-center">Size</label>
+        <input
+          type="range"
+          min="1"
+          max="50"
+          value={brushSize}
+          onChange={(e) => setBrushSize(Number(e.target.value))}
+          className="w-full"
+        />
+
+        {/* Brush opacity slider */}
+        <label className="text-xs text-center">Opacity</label>
+        <input
+          type="range"
+          min="0.1"
+          max="1"
+          step="0.05"
+          value={brushOpacity}
+          onChange={(e) => setBrushOpacity(Number(e.target.value))}
+          className="w-full"
+        />
+
+        {/* Color picker button */}
+        <label className="text-xs text-center">Color</label>
+        <input
+          type="color"
+          value={brushColor}
+          onChange={(e) => setBrushColor(e.target.value)}
+          className="w-full h-8 p-0 border rounded"
+          title="Choose brush color"
+        />
+
         {/* Layers button */}
         <button
           onClick={() => setShowLayers(!showLayers)}

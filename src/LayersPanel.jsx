@@ -8,8 +8,8 @@ export default function LayersPanel({
   addLayer,
   deleteLayer,
   reorderLayer,
-  mergeUpLayer,
-  mergeDownLayer,
+  mergeUp,
+  mergeDown,
 }) {
   function toggleVisibility(id) {
     setLayers(prev =>
@@ -45,14 +45,23 @@ export default function LayersPanel({
         {layers.map((layer, index) => (
           <div
             key={layer.id}
-            className="p-2 rounded border bg-gray-50"
+            onClick={() => setActiveLayerId(layer.id)} // click anywhere selects layer
+            className={`p-2 rounded border cursor-pointer transition-colors ${
+              activeLayerId === layer.id ? "bg-blue-100 border-blue-500" : "bg-gray-50"
+            }`}
           >
             <div className="flex justify-between items-center mb-1">
-              <span>{layer.name}</span>
+              <span className="flex items-center gap-1">
+                {layer.name}
+                {activeLayerId === layer.id && (
+                  <span className="text-xs text-blue-600 font-semibold">Active</span>
+                )}
+              </span>
+
               <div className="flex gap-1">
                 {/* Visibility toggle */}
                 <button
-                  onClick={() => toggleVisibility(layer.id)}
+                  onClick={(e) => { e.stopPropagation(); toggleVisibility(layer.id); }}
                   className="px-1"
                 >
                   {layer.visible ? "👁" : "🚫"}
@@ -60,7 +69,7 @@ export default function LayersPanel({
 
                 {/* Select layer button */}
                 <button
-                  onClick={() => setActiveLayerId(layer.id)}
+                  onClick={(e) => { e.stopPropagation(); setActiveLayerId(layer.id); }}
                   className={`px-2 py-1 rounded text-sm ${
                     activeLayerId === layer.id
                       ? "bg-blue-500 text-white font-semibold"
@@ -92,16 +101,16 @@ export default function LayersPanel({
               </div>
               <div className="flex justify-end mt-1 text-xs gap-1">
                 <button
-                  onClick={(e) => { e.stopPropagation(); mergeUp(layer.id); }}
+                  onClick={(e) => { e.stopPropagation(); mergeUpLayer(layer.id); }}
                   className="text-green-600"
-                  disabled={layers[0].id === layer.id} // topmost layer cannot merge up
+                  disabled={layers[0].id === layer.id}
                 >
                   Merge Up
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); mergeDown(layer.id); }}
+                  onClick={(e) => { e.stopPropagation(); mergeDownLayer(layer.id); }}
                   className="text-green-600"
-                  disabled={layers[layers.length - 1].id === layer.id} // bottommost layer cannot merge down
+                  disabled={layers[layers.length - 1].id === layer.id}
                 >
                   Merge Down
                 </button>
