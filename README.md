@@ -4,6 +4,7 @@ A lightweight browser-based image editor inspired by Photoshop.
 Built with **React**, **Konva**, and **Tailwind CSS**, this app lets you draw, paint, and manage layers directly in the browser — no backend required.
 
 ---
+<img width="887" height="686" alt="Screenshot 2025-09-06 174941" src="https://github.com/user-attachments/assets/2d74fb34-4f2b-430b-9c3a-3f29f94d5b3e" />
 
 ## ✨ Features
 
