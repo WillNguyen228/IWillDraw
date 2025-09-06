@@ -1,12 +1,40 @@
-# React + Vite
+# 🖌️ Mini Photoshop (React + Konva + Tailwind)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightweight browser-based image editor inspired by Photoshop.  
+Built with **React**, **Konva**, and **Tailwind CSS**, this app lets you draw, paint, and manage layers directly in the browser — no backend required.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## Expanding the ESLint configuration
+- 🎨 **Brush engine** (custom brush tips with off-screen canvas support)  
+- 🖼️ **Layer system** (add, move, resize, delete layers)  
+- 🔄 **Undo/redo** support  
+- 📂 **Import images** from your device  
+- 💾 **Export canvas** as PNG  
+- ⚡ Fully client-side (no login, no server needed)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18+ recommended)  
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+
+### Installation
+
+1. Clone this repository:
+
+```bash
+git clone https://github.com/yourusername/mini-photoshop.git
+cd mini-photoshop
+```
+2. Install dependencies:
+```bash
+npm install
+```
+3. Run the app
+```bash
+npm run dev
+```
